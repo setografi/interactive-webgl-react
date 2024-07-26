@@ -49,7 +49,7 @@ export const Beam = forwardRef(
       }
 
       streaks.current.count = range;
-      streaks.current.instanceMatrix.updateRange.count = range * 16;
+      streaks.current.instanceMatrix.addUpdateRange.count = range * 16;
       streaks.current.instanceMatrix.needsUpdate = true;
 
       // First glow isn't shown.
@@ -66,7 +66,7 @@ export const Beam = forwardRef(
       }
 
       glow.current.count = range;
-      glow.current.instanceMatrix.updateRange.count = range * 16;
+      glow.current.instanceMatrix.addUpdateRange.count = range * 16;
       glow.current.instanceMatrix.needsUpdate = true;
     });
 
