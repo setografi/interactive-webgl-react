@@ -3,10 +3,16 @@ import {
   forwardRef,
   useRef,
   useMemo,
-  useImperativeHandle,
   useLayoutEffect,
+  useImperativeHandle,
 } from "react";
 import { invalidate } from "@react-three/fiber";
+
+function isRayMesh(object) {
+  return (
+    object.isMesh && (object.onRayOver || object.onRayOut || object.onRayMove)
+  );
+}
 
 function createEvent(api, hit, intersect, intersects) {
   return {
@@ -15,7 +21,7 @@ function createEvent(api, hit, intersect, intersects) {
     position: intersect.point,
     direction: intersect.direction,
     reflect: intersect.reflect,
-    normal: intersect.face.normal,
+    normal: intersect.face?.normal,
     intersect,
     intersects,
     stopPropagation: () => (hit.stopped = true),
@@ -26,7 +32,6 @@ export const Reflect = forwardRef(
   (
     {
       children,
-      onUpdate,
       start: _start = [0, 0, 0],
       end: _end = [0, 0, 0],
       bounce = 10,
@@ -37,7 +42,7 @@ export const Reflect = forwardRef(
   ) => {
     bounce = (bounce || 1) + 1;
 
-    const scene = useRef();
+    const scene = useRef(null);
     const vStart = new THREE.Vector3();
     const vEnd = new THREE.Vector3();
     const vDir = new THREE.Vector3();
@@ -75,12 +80,10 @@ export const Reflect = forwardRef(
           while (true) {
             api.raycaster.set(vStart, vDir);
             intersect = api.raycaster.intersectObjects(api.objects, false)[0];
-
             if (api.number < bounce && intersect && intersect.face) {
               intersects.push(intersect);
               intersect.direction = vDir.clone();
-
-              // Something was hit and we still haven't met bounce limit.
+              // Something was hit and we still haven't met bounce limit
               intersect.point.toArray(api.positions, api.number++ * 3);
               vDir.reflect(
                 intersect.object
@@ -88,8 +91,8 @@ export const Reflect = forwardRef(
                   .sub(intersect.object.getWorldPosition(vPos))
                   .normalize()
               );
-
               intersect.reflect = vDir.clone();
+
               vStart.copy(intersect.point);
             } else {
               // Nothing was hit and the ray extends into "infinity" (dir * far).
@@ -99,19 +102,17 @@ export const Reflect = forwardRef(
               break;
             }
           }
-
           // Reset and count up once again.
           api.number = 1;
-
           // Check onRayOut.
           api.hits.forEach((hit) => {
-            // If a previous hit is no longer part of the intersects ...
+            // If a previous hit is no longer part of the intersects...
             if (
               !intersects.find((intersect) => intersect.object.uuid === hit.key)
             ) {
-              // Remove the hit entry...
+              // ...remove the hit entry
               api.hits.delete(hit.key);
-              // ...and call onRayOut.
+              // and call onRayOut.
               if (hit.intersect.object.onRayOut) {
                 invalidate();
                 hit.intersect.object.onRayOut(
@@ -124,18 +125,16 @@ export const Reflect = forwardRef(
           // Check onRayOver.
           for (intersect of intersects) {
             api.number++;
-
             // If the intersect hasn't been hit before...
             if (!api.hits.has(intersect.object.uuid)) {
-              // Create new entry.
+              // ...create new entry
               const hit = {
                 key: intersect.object.uuid,
                 intersect,
                 stopped: false,
               };
               api.hits.set(intersect.object.uuid, hit);
-              // Call ray over.
-
+              // and call onRayOver.
               if (intersect.object.onRayOver) {
                 invalidate();
                 intersect.object.onRayOver(
@@ -156,7 +155,6 @@ export const Reflect = forwardRef(
 
             // If the hit was stopped (by the user calling stopPropagation), then interrupt the loop.
             if (hit.stopped) break;
-
             // If we're at the last hit and the ray hasn't been stopped, it goes into the infinite.
             if (intersect === intersects[intersects.length - 1]) api.number++;
           }
@@ -173,12 +171,7 @@ export const Reflect = forwardRef(
       // Collect all objects that fulfill the criteria.
       api.objects = [];
       scene.current.traverse((object) => {
-        if (
-          object.isMesh &&
-          (object.onRayOver || object.onRayOut || object.onRayMove)
-        ) {
-          api.objects.push(object);
-        }
+        if (isRayMesh(object)) api.objects.push(object);
       });
       // Calculate world matrices at least once before it starts to raycast.
       scene.current.updateWorldMatrix(true, true);
